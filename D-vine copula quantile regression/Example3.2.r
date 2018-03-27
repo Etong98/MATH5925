@@ -23,15 +23,17 @@ u2 <- kcde(sample$X2, eval.points=sample$X2)$estimate
 u3 <- kcde(sample$X3, eval.points=sample$X3)$estimate
 
 
-cop.vu1 <- BiCopSelect(v, u1, indeptest=TRUE)
-cop.vu2 <- BiCopSelect(v, u2, indeptest=TRUE)
+cop.vu1 <- BiCopSelect(v, u1, indeptest=TRUE, familyset=1)
+cop.vu2 <- BiCopSelect(v, u2, indeptest=TRUE, familyset=1)
 cop.vu3 <- BiCopSelect(v, u3, indeptest=TRUE)
 
 cll <- c(cop.vu1$AIC, cop.vu2$AIC, cop.vu3$AIC)
 max_cll <- min(cll)
 max_idx <- which.min(cll)
 
-cop.u1u2 <- BiCopSelect(u1, u2, indeptest=TRUE )
+cop.u1u2 <- BiCopSelect(u1, u2, indeptest=TRUE, familyset=1)
 F1 <- BiCopHfunc2(v, u2, obj=cop.vu2)
 F2 <- BiCopHfunc2(u1, u2, obj=cop.u1u2)
-cop.vu1_u2 <- BiCopSelect(F1, F2, indeptest=TRUE)
+cop.vu1_u2 <- BiCopSelect(F1, F2, indeptest=TRUE, familyset=1)
+loglik <- cop.vu2$logLik+cop.vu1_u2$logLik
+
