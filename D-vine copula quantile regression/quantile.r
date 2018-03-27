@@ -2,6 +2,7 @@ rm(list=ls())
 
 library(MASS)
 library(VineCopula)
+library(copula)
 library(ks)
 
 
@@ -17,19 +18,20 @@ sample <- data.frame(mvrnorm(n, mean, cov_mat))
 colnames(sample) <-  c('Y','X1','X2','X3')
 
 v <- kcde(sample$Y, eval.points=sample$Y)$estimate
-mu1 <- kcde(sample$X1, eval.points=sample$X1)$estimate
-mu2 <- kcde(sample$X2, eval.points=sample$X2)$estimate
-mu3 <- kcde(sample$X3, eval.points=sample$X3)$estimate
+u1 <- kcde(sample$X1, eval.points=sample$X1)$estimate
+u2 <- kcde(sample$X2, eval.points=sample$X2)$estimate
+u3 <- kcde(sample$X3, eval.points=sample$X3)$estimate
 
 
-cop_vx1 <- BiCopSelect(v, mu1, indeptest=TRUE)
-cop_vx2 <- BiCopSelect(v, mu2, indeptest=TRUE) 
-cop_vx3 <- BiCopSelect(v, mu3, indeptest=TRUE)
+cop.vu1 <- BiCopSelect(v, u1, indeptest=TRUE)
+cop.vu2 <- BiCopSelect(v, u2, indeptest=TRUE)
+cop.vu3 <- BiCopSelect(v, u3, indeptest=TRUE)
 
-cll <- c(cop_vx1$AIC, cop_vx2$AIC, cop_vx3$AIC)
+cll <- c(cop.vu1$AIC, cop.vu2$AIC, cop.vu3$AIC)
 max_cll <- min(cll)
 max_idx <- which.min(cll)
 
-cop_u1u2 <- BiCopSelect(mu1, mu2, indeptest=TRUE )
-
-
+cop.u1u2 <- BiCopSelect(u1, u2, indeptest=TRUE )
+F1 <- BiCopHfunc2(v, u2, obj=cop.vu2)
+F2 <- BiCopHfunc2(u1, u2, obj=cop.u1u2)
+cop.vu1_u2 <- BiCopSelect(F1, F2, indeptest=TRUE)
