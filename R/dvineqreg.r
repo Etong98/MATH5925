@@ -10,7 +10,7 @@ library(ks)
 # mean <- rep(0, 4)
 # cov_mat <- matrix(c(1, 0.4, 0.8, 0,
 #                     0.4, 1, 0.32, 0,
-#                     0.8, 0.32, 1, 0, 
+#                     0.8, 0.32, 1, 0,
 #                     0, 0, 0, 1),
 #                   nrow=4, ncol=4)
 # data <- data.frame(mvrnorm(n, mean, cov_mat))
@@ -22,9 +22,9 @@ DVine = function(data){
   
   # PIT with continous kernel smoothing estimator
   for (i in 1:d){
-    U[,i] <- kcde(data[,i+1], eval.points=data[,i+1])$estimate
+    U[,i] = kcde(data[,i+1], eval.points=data[,i+1])$estimate
   }
-  V <- kcde(data[,1], eval.points = data[, 1])$estimate
+  V = kcde(data[,1], eval.points = data[, 1])$estimate
   
   # PIT with logspline
   ls = logspline(data[,1], error.action=2)
@@ -45,7 +45,7 @@ DVine = function(data){
   order = vector(mode='integer', length=d)
 
   # Initialize global variable
-  I <- 1:d
+  I = 1:d
   global.max.cll = -Inf
   cll = 0
   for (step in 1:d){
