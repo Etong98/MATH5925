@@ -2,12 +2,6 @@
 
 rm(list = ls()) # clear workspace variable
 
-library(sn)
-library(quantreg)
-library(mboost)
-library(np)
-library(MASS)
-
 library(parallel)
 library(doSNOW)
 library(foreach)

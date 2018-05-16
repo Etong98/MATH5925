@@ -2,13 +2,6 @@
 
 rm(list = ls()) # clear workspace variable
 
-library(sn)
-library(quantreg)
-library(mboost)
-library(np)
-library(copula)
-library(MASS)
-
 library(parallel)
 library(doSNOW)
 library(foreach)
@@ -51,7 +44,7 @@ ISE <- foreach(r=1:R) %dopar% {
   # Create copula object
   copula = claytonCopula(param=delta,dim=D)
   mv <- mvdc(copula, margins=dist,paramMargins=para)
-
+  
   # Genearte training data
   sim.train = data.frame(rMvdc(n.train, mv))
   # Genearte evaulation data 
