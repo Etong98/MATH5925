@@ -1,11 +1,6 @@
-rm(list = ls()) # clear workspace variable
+# SIMULATION; SCENARIO t5
 
-library(sn)
-library(quantreg)
-library(mboost)
-library(np)
-library(copula)
-library(MASS)
+rm(list = ls()) # clear workspace variable
 
 library(parallel)
 library(doSNOW)
@@ -16,101 +11,68 @@ cl = makeCluster(num_core)
 registerDoSNOW(cl)
 
 # Simulation parameter
-R = 100
-d = 4
-D = 5
-
+R = 10
+d = 4; D = d+1
 n.train = 300
 alpha = 0.95 # quantile level
 
 # True quantile function
-quantile_C3 = function(x1, x2, tau){
-  theta = 0.86
-  #u1 = pt(x1, df=4)
-  #u2 = pnorm(x2, mean=1, sd=sqrt(4))
-  u1 = psn(x1, xi=-2, omega=sqrt(0.5), alpha=3); u2 = pst(x2, xi=1, omega=sqrt(2), alpha=5, nu=3)
-  prob = ((tau^(-theta/(1+2*theta))-1)*(u1^(-theta)+u2^(-theta)-1)+1)^(-1/theta)
-  return(qnorm(prob))
-}
-
-# quantile2 = function(X, tau, R, dist, para){
-#   d = dim[X][2]
-#   n = dim[X][1]
-#   sigma_yx = R[1, 2:(d+1)]
-#   sigma_xx = R[2:(d+1),2:(d+1)]
-#   
-# }
-
-quantile_N5 = function(newdata, tau, func, sd){
-  return(qnorm(tau, mean=func(newdata), sd=sd))
-}
-
-### Scenario 1: C3 ----
-# delta
-delta = 0.86; 
-#delta = 4.67
-# Margin
-#dist = c('norm', 't', 'norm')
-#para = list(list(mean=0, sd=1), list(df=4), list(mean=1, sd=sqrt(4)))
-dist = c('st', 'sn', 'st')
-para = list(list(xi=0, omega=1, alpha=2, nu=4), list(xi=-2, omega=sqrt(0.5), alpha=3),
-                 list(xi=1, omega=sqrt(2), alpha=5, nu=3))
-
-### Scenario 2: t5 ----
-# # R
-#R = matrix(c(1, 0.6, 0.5, 0.5, 0.4, 0.6, 1, 0.5, 0.5, 0.5, 0.5, 0.5, 1, 0.5, 0.5, 
-#              0.5, 0.5, 0.5, 1, 0.5, 0.4, 0.5, 0.5, 0.5, 1), nrow=5, ncol=5)
-## Margin
-# dist = c('norm', 't', 'norm', 't', 'norm')
-#para = list(list(mean=0, sd=1), list(df=4), list(mean=1,sd=sqrt(4)), list(df=4), list(mean=1, sd=sqrt(4)))
-# dist = c('st', 'sn', 'st', 'sn', 'st')
-# para = list(list(xi))
-
-### Scenario 3: M5 ----
-sigma = 0.1
-fY = function(x){
-  y = sqrt(abs(2*x[,1]-x[,2]+0.5))+(-0.5*x[,3]+1)*(0.1*x[,4]^3)
-  return(y)
-}
-S_X = matrix(NA, 4, 4)
-for (i in 1:d){
-  for (j in 1:d){
-    S_X[i,j] = 0.5^abs(i-j)
+quantile_true = function(data, tau, df, corr, sd, mu){
+  n = dim(data)[1]
+  d = dim(data)[2]
+  D = d+1
+  df_c = df+d
+  
+  S = diag(sd)%*%corr%*%diag(sd)
+  S_XX = as.matrix(S[2:D,2:D])
+  S_YX = as.matrix(S[1,2:D])
+  x_bar = as.matrix(sweep(data,2,mu[2:D]))
+  
+  mu_c = rep(NA, n); var_c = rep(NA, n)
+  for (i in 1:n){
+    mu_c[i] = mu[1]+t(S_YX)%*%solve(S_XX)%*%x_bar[i,]
+    var_c[i] = (df+t(x_bar[i,])%*%solve(S_XX)%*%x_bar[i,])*
+                (S[1,1]-t(S_YX)%*%solve(S_XX)%*%S_YX)/df_c
   }
+  return(qt.scaled(tau, df=df_c, mean=mu_c, sd=sqrt(var_c)))  
 }
-mu_X = rep(0, 4)
 
 
-# Initalize Integrated Sqauare Error vec
-# ISE.LQR = rep(0,R); ISE.BAQR = rep(0,R); ISE.NPQR = rep(0,R); ISE.DVQR = rep(0, R)
+# Scenario paramters
+v = 3 # df
+R_vec = c(0.6, 0.5, 0.5, 0.4, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
+R_vec = c(0.27, 0.74, 0.72, 0.41, 0.28, 0.29, 0.27, 0.74, 0.42, 0.40)
+sdist = c('norm', 't', 'norm', 't', 'norm')
+para = list(list(mean=0), list(df=4), list(mean=1,sd=2), list(df=4), list(mean=1,sd=2))
+dist = c('st', 'sn', 'st', 'sn', 'st')
+para = list(list(alpha=2,nu=4), list(xi=-2,omega=sqrt(0.5),alpha=3), list(xi=1,omega=sqrt(2),alpha=5,nu=3), 
+            list(xi=-2,omega=sqrt(0.5),alpha=3), list(xi=1,omega=sqrt(2),alpha=5,nu=3))
+mu = c(0, 0, 1, 0, 1)
+sd = c(1, sqrt(2), 2, sqrt(2),2)
 
-clusterEvalQ(cl, list(library(sn), library(quantreg), library(mboost), library(np), library(copula), library(MASS)))
-clusterExport(cl, list('R', 'n.train', 'alpha', 'quantile_N5', 'delta', 'dist', 'para', 'S_X', 'mu_X', 'd', 'D','fY', 'sigma'))
+
+clusterEvalQ(cl, list(library(sn), library(quantreg), library(mboost), library(np), library(copula), library(MASS), library(metRology)))
+clusterExport(cl, list('R', 'n.train', 'alpha', 'd', 'D', 'quantile_true', 'dist', 'para', 'mu', 'sd', 'v'))
 
 start_time = proc.time()
 ISE <- foreach(r=1:R) %dopar% {
-  #copula = claytonCopula(param=delta,dim=3)
-  #mv <- mvdc(copula, margins=dist,paramMargins=para)
+  copula = tCopula(R_vec, dim=D, dispstr='un', df=v)
+  mv <- mvdc(copula, margins=dist, paramMargins=para)
 
   # Genearte training data
-  #sim.train = data.frame(rMvdc(n.train, mv))
-  X.train = mvrnorm(n.train, mu_X, S_X)
-  Y.train = fY(X.train)+sigma*rnorm(n.train)
-  sim.train = data.frame(cbind(Y.train, X.train))
+  sim.train = data.frame(rMvdc(n.train, mv))
+
   # Genearte evaulation data 
   n.eval <- n.train/2
-  #sim.eval <- data.frame(rMvdc(n.eval, mv))
-  X.eval = mvrnorm(n.eval, mu_X, S_X)
-  Y.eval = fY(X.eval)+sigma*rnorm(n.train)
-  sim.eval = data.frame(cbind(Y.eval, X.eval))
+  sim.eval <- data.frame(rMvdc(n.eval, mv))
   
   # Linear quanitle regression (LQR)
-  LQR <- rq(Y.train~., tau=alpha, data=sim.train)
+  LQR <- rq(X1~., tau=alpha, data=sim.train)
   
   # Boosting additive (BAQR)
   it <- 100
   bc <- boost_control(mstop = it, nu=0.25, trace = TRUE, risk = "oob")
-  BAQR <- gamboost(Y.train~., data=sim.train, control=bc, family=QuantReg(tau=alpha))
+  BAQR <- gamboost(X1~., data=sim.train, control=bc, family=QuantReg(tau=alpha))
   
   # D-vine quantile regression (DVQR)
   source("R/dvineqreg.R")
@@ -124,8 +86,8 @@ ISE <- foreach(r=1:R) %dopar% {
   q.BAQR = predict(BAQR, newdata=sim.eval[,2:D])
   #q.NPQR = npqreg(bws=bw, newdata=sim.eval[,2:3])$quantile
   q.DVQR = DVQR.quantile(DVQR, newdata=sim.eval[,2:D], tau=alpha)
-  #q = quantile(x1=sim.eval$X2, x2=sim.eval$X3, tau=alpha)
-  q = quantile_N5(newdata=sim.eval[,2:D], tau=alpha, func=fY, sd=sigma)
+  q = quantile_true(data=sim.eval[,2:D], tau=alpha, df=v, corr=getSigma(copula), sd=sd, mu=mu)
+
   
   # Integrated square error
   ISE.LQR = sum((q-q.LQR)^2)/n.eval
@@ -135,13 +97,6 @@ ISE <- foreach(r=1:R) %dopar% {
   output = list(ISE.DVQR, ISE.LQR, ISE.BAQR, DVQR)
   output
 }
-# MISE.LQR = sum(ISE.LQR)/R
-# MISE.LQR
-# MISE.BAQR = sum(ISE.BAQR)/R
-# MISE.BAQR
-# # MISE.NPQR = sum(ISE.NPQR)/R
-# # MISE.NPQR
-# MISE.DVQR = sum(ISE.DVQR)/R
 MISE.DVQR = 0; MISE.LQR = 0; MISE.BAQR = 0
 for (i in 1:R){
   MISE.DVQR =  MISE.DVQR+ISE[[i]][[1]]/R
