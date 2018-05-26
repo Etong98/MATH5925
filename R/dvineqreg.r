@@ -1,110 +1,57 @@
 library(VineCopula)
+library(CDVine)
 library(logspline)
 library(ks)
 
-# # Testing
-# library(MASS)
-# rm(list=ls())
-# n <- 500
-# d <- 3
-# mean <- rep(0, 4)
-# cov_mat <- matrix(c(1, 0.4, 0.8, 0,
-#                     0.4, 1, 0.32, 0,
-#                     0.8, 0.32, 1, 0,
-#                     0, 0, 0, 1),
-#                   nrow=4, ncol=4)
-# data <- data.frame(mvrnorm(n, mean, cov_mat))
-# colnames(data) <-  c('Y','X1','X2','X3')
 
-DVine = function(data){
-  d = dim(data)[2]-1; n = dim(data)[1]
-  U = matrix(nrow=n, ncol=d)
+Dvine = function(data){
+  d = ncol(data)-1
+  n = nrow(data)
   
   # PIT with continous kernel smoothing estimator
+  U = matrix(nrow=n, ncol=d)
   for (i in 1:d){
     U[,i] = kcde(data[,i+1], eval.points=data[,i+1])$estimate
   }
-  V = kcde(data[,1], eval.points = data[, 1])$estimate
+  #V = kcde(data[,1], eval.points = data[, 1])$estimate
   
   # PIT with logspline
   ls = logspline(data[,1], error.action=2)
-  # V = plogspline(data[,1], fit=ls)
-  # for (i in 1:d){
-  #   ls_x = logspline(data[,i], error.action=1)
-  #   if (!is.null(ls_x)){
-  #     U[,i] = plogspline(data[,i], fit=ls_x)
-  #   }
-  # }
+  V = plogspline(data[,1], fit=ls)
   
-  # Allocate empty vector and matrix
-  cop.VU.cll = vector(length=d)
-  cop.VU = vector('list', length=d)
-  cop.UU = vector('list', length=d)
-  U1 = vector(length=n)
-  U2 = matrix(nrow=n, ncol=d)
-  order = vector(mode='integer', length=d)
-
-  # Initialize global variable
-  I = 1:d
-  global.max.cll = -Inf
-  cll = 0
+  order = 0[-1]
+  global_AIC = Inf
+  M = 1:d
   for (step in 1:d){
-    if (step == 1){
-      loglik_max = -Inf
-      for (i in 1:d){
-        cop.VU_temp = BiCopSelect(V, U[,i], indeptest=TRUE)
-        if (cop.VU_temp$logLik > loglik_max){
-          loglik_max = cop.VU_temp$logLik
-          l = i
-          cop.VU[[step]] = cop.VU_temp
-          U2[,1] = U[,i]
-        }
+    min_AIC = Inf
+    for (i in M){
+      if (step == 1){
+        dv = BiCopSelect(V, U[,i], indeptest=TRUE)
+      }else{
+        dv = CDVineCopSelect(cbind(V,U[,append(order,i)]), type=2, indeptest=TRUE)
       }
-      U1 = V
-    }else{
-      U2_prev = U2; U1_prev = U1
-      
-      U1 = BiCopHfunc2(U1_prev, U2_prev[,step-1], obj=cop.VU[[step-1]])
-      U2_temp = matrix(nrow=n, ncol=d)
-      
-      loglik_max = -Inf
-      cop.UU_temp = vector('list', length=d)
-      for (i in I){
-        h1 = U[, i]; h2 = U[,l]
-        for (k in 2:step){
-          cop.UU_temp[[k]] = BiCopSelect(h1, h2, indeptest=TRUE)
-          U2_temp[, k] = BiCopHfunc1(h1, h2, cop.UU_temp[[k]])
-          h1 = BiCopHfunc2(h1, h2, obj=cop.UU_temp[[k]])
-          h2 = U2_prev[, k]
-        }
-        cop.VU_temp = BiCopSelect(U1, h1, indeptest=TRUE)
-        if (cop.VU_temp$logLik > loglik_max){
-          loglik_max = cop.VU_temp$logLik
-          U2 = U2_temp
-          cop.UU[[step]] = cop.UU_temp
-          cop.VU[[step]] = cop.VU_temp
-          l = i
-        }
+      AIC = CDVineAIC(cbind(V,U[,append(order,i)]), dv$family, dv$par, dv$par2, type=2)$AIC
+      if (AIC < min_AIC){
+        min_AIC = AIC
+        m = i
+        DV = dv
       }
     }
-    
-    cll = cll+loglik_max
-    if (cll <= global.max.cll){
-      order = order[1:step-1]
-      return(list(ord = order, copVU = cop.VU, copUU = cop.UU, logSpline=ls))
+    if (min_AIC == 0){
+      return(list(DV, order, ls))
     }
-    global.max.cll = cll
-    I = I[! I %in% l]
-    order[step] = l
+    global_AIC = min_AIC
+    M = M[!M %in% m]
+    order = append(order,m)
   }
-  return(list(ord = order, copVU = cop.VU, copUU = cop.UU, logSpline=ls))
+  return(list(DV, order, ls))
 }
 
 
-DVQR.quantile = function(obj, newdata, tau){
-  order = obj$ord; cop.VU = obj$copVU; cop.UU = obj$copUU
+DVQR.quantile = function(newdata, obj, tau){
+  order = obj[[2]]; fam = obj[[1]]$family; par = obj[[1]]$par; par2 = obj[[1]]$par2
   
-  d = length(order); n = dim(newdata)[1]
+  d = length(order); n = nrow(newdata)
   U = matrix(nrow=n, ncol=d); U2 = matrix(nrow=n, ncol=d)
   
   # Probability integral transform
@@ -123,20 +70,36 @@ DVQR.quantile = function(obj, newdata, tau){
     }else{
       UU_prev = UU
       h1 = U[, step]; h2 = U[,step-1]; UU[,1] = U[,step-1]
+      inc = d-1; index = step
       for (k in 2:step){
-        UU[, k] = BiCopHfunc1(h1, h2, obj=cop.UU[[step]][[k]])
-        h1 = BiCopHfunc2(h1, h2, obj=cop.UU[[step]][[k]])
-        h2 = UU_prev[, k]
+        if (k==2){
+          UU[, k] = BiCopHfunc1(h1, h2, family=fam[step], par=par[step], par2=par2[step])
+          h1 = BiCopHfunc2(h1, h2, family=fam[step], par=par[step], par2=par2[step])
+          h2 = UU_prev[,k]
+        }else{
+          index = index+inc
+          UU[, k] = BiCopHfunc1(h1, h2, family = fam[index], par=par[index], par2=par2[index])
+          h1 = BiCopHfunc2(h1, h2, family = fam[index], par=par[index], par2=par2[index])
+          h2 = UU_prev[,k]
+          inc = inc-1
+        }
       }
       U2[,step] = h1
     }
   }
   
   # Calculate conditional quantile
-  cqf = rep(alpha,n)
+  cqf = rep(tau,n)
+  index = (d+1)*d/2; inc = 2
   for (step in d:1){
-    cqf = BiCopHinv2(cqf, U2[,step], obj=cop.VU[[step]])
+    if (step == d){
+      cqf = BiCopHinv2(cqf, U2[,step], family=fam[index], par=par[index], par2=par2[index])
+    }else{
+      index = index-inc
+      cqf = BiCopHinv2(cqf, U2[,step], family=fam[index], par=par[index], par2=par2[index])
+      inc = inc+1
+    }
   }
-  quantile = qlogspline(cqf, fit=obj$logSpline)
+  quantile = qlogspline(cqf, fit=obj[[3]])
   return(quantile)
 }
