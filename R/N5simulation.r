@@ -11,7 +11,7 @@ cl = makeCluster(num_core)
 registerDoSNOW(cl)
 
 # Simulation parameters
-R = 10
+R = 100
 d = 4
 D = d+1
 
@@ -37,8 +37,8 @@ for (i in 1:d){
 }
 mu_X = rep(0, 4)
 
-clusterEvalQ(cl, list(library(sn), library(quantreg), library(mboost), library(np), library(MASS)))
-clusterExport(cl, list('R', 'n.train', 'alpha', 'quantile_true', 'S_X', 'mu_X', 'd', 'D','fY', 'sigma'))
+clusterEvalQ(cl, list(library(sn), library(quantreg), library(mboost), library(MASS)))
+clusterExport(cl, list('n.train', 'alpha', 'quantile_true', 'S_X', 'mu_X', 'd', 'D','fY', 'sigma'))
 
 start_time = proc.time()
 ISE <- foreach(r=1:R) %dopar% {
@@ -48,18 +48,18 @@ ISE <- foreach(r=1:R) %dopar% {
   sim.train = data.frame(cbind(Y.train, X.train))
   
   # Genearte evaulation data 
-  n.eval <- n.train/2
+  n.eval = n.train/2
   X.eval = mvrnorm(n.eval, mu_X, S_X)
   Y.eval = fY(X.eval)+sigma*rnorm(n.eval)
   sim.eval = data.frame(cbind(Y.eval, X.eval))
   
   # Linear quanitle regression (LQR)
-  LQR <- rq(Y.train~., tau=alpha, data=sim.train)
+  LQR = rq(Y.train~., tau=alpha, data=sim.train)
   
   # Boosting additive (BAQR)
-  it <- 100
-  bc <- boost_control(mstop = it, nu=0.25, trace = TRUE, risk = "oob")
-  BAQR <- gamboost(Y.train~., data=sim.train, control=bc, family=QuantReg(tau=alpha))
+  it = 100
+  bc = boost_control(mstop = it, nu=0.25, trace = TRUE, risk = "oob")
+  BAQR = gamboost(Y.train~., data=sim.train, control=bc, family=QuantReg(tau=alpha))
   
   # Semiparametric quantile regression (SPQR)
   source('R/SPqreg.R')

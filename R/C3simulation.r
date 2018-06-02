@@ -16,7 +16,7 @@ d = 2
 D = d+1
 
 n.train = 300
-alpha = 0.5 # quantile level
+alpha = 0.95 # quantile level
 
 # True quantile function
 quantile_true = function(data, tau, dist, par, theta){
@@ -28,13 +28,13 @@ quantile_true = function(data, tau, dist, par, theta){
 }
 
 # Scenario parameters
-delta = 0.86; 
-#delta = 4.67
-dist = c('norm', 't', 'norm')
-para = list(list(mean=0, sd=1), list(df=4), list(mean=1, sd=sqrt(4)))
-#dist = c('st', 'sn', 'st')
-#para = list(list(xi=0, omega=1, alpha=2, nu=4), list(xi=-2, omega=sqrt(0.5), alpha=3),
-#                 list(xi=1, omega=sqrt(2), alpha=5, nu=3))
+#delta = 0.86; 
+delta = 4.67
+#dist = c('norm', 't', 'norm')
+#para = list(list(mean=0, sd=1), list(df=4), list(mean=1, sd=sqrt(4)))
+dist = c('st', 'sn', 'st')
+para = list(list(xi=0, omega=1, alpha=2, nu=4), list(xi=-2, omega=sqrt(0.5), alpha=3),
+                 list(xi=1, omega=sqrt(2), alpha=5, nu=3))
 
 clusterEvalQ(cl, list(library(sn), library(quantreg), library(mboost), library(np), library(copula), library(MASS)))
 clusterExport(cl, list('R', 'd', 'D', 'n.train', 'alpha', 'quantile_true', 'delta', 'dist', 'para'))

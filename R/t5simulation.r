@@ -11,10 +11,10 @@ cl = makeCluster(num_core)
 registerDoSNOW(cl)
 
 # Simulation parameter
-R = 10
+R = 50
 d = 4; D = d+1
 n.train = 300
-alpha = 0.5 # quantile level
+alpha = 0.95 # quantile level
 
 # True quantile function
 quantile_true = function(data, tau, df, corr, sd, mu){
@@ -42,11 +42,11 @@ quantile_true = function(data, tau, df, corr, sd, mu){
 v = 3 # df
 #R_vec = c(0.6, 0.5, 0.5, 0.4, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
 R_vec = c(0.27, 0.74, 0.72, 0.41, 0.28, 0.29, 0.27, 0.74, 0.42, 0.40)
-dist = c('norm', 't', 'norm', 't', 'norm')
-para = list(list(mean=0), list(df=4), list(mean=1,sd=2), list(df=4), list(mean=1,sd=2))
-#dist = c('st', 'sn', 'st', 'sn', 'st')
-#para = list(list(alpha=2,nu=4), list(xi=-2,omega=sqrt(0.5),alpha=3), list(xi=1,omega=sqrt(2),alpha=5,nu=3), 
-#            list(xi=-2,omega=sqrt(0.5),alpha=3), list(xi=1,omega=sqrt(2),alpha=5,nu=3))
+#dist = c('norm', 't', 'norm', 't', 'norm')
+#para = list(list(mean=0), list(df=4), list(mean=1,sd=2), list(df=4), list(mean=1,sd=2))
+dist = c('st', 'sn', 'st', 'sn', 'st')
+para = list(list(alpha=2,nu=4), list(xi=-2,omega=sqrt(0.5),alpha=3), list(xi=1,omega=sqrt(2),alpha=5,nu=3), 
+            list(xi=-2,omega=sqrt(0.5),alpha=3), list(xi=1,omega=sqrt(2),alpha=5,nu=3))
 mu = c(0, 0, 1, 0, 1)
 sd = c(1, sqrt(2), 2, sqrt(2),2)
 
