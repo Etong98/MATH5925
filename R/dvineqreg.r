@@ -37,7 +37,7 @@ Dvine = function(data){
         DV = dv
       }
     }
-    if (min_AIC == 0){
+    if (min_AIC == 0 && step != 1){
       return(list(DV, order, ls))
     }
     global_AIC = min_AIC
